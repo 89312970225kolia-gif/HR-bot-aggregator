@@ -26,3 +26,12 @@ def test_production_requires_integration_credentials() -> None:
     )
     with pytest.raises(ValueError, match="HR_CHAT_ID.*YANDEX_API_KEY"):
         settings.validate_runtime()
+
+
+def test_blank_google_service_account_path_is_missing() -> None:
+    settings = Settings(
+        _env_file=None,
+        google_service_account_file="",
+    )
+
+    assert settings.google_service_account_file is None

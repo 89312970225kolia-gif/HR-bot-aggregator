@@ -56,6 +56,13 @@ class Settings(BaseSettings):
     def normalize_log_level(cls, value: str) -> str:
         return value.strip().upper()
 
+    @field_validator("google_service_account_file", mode="before")
+    @classmethod
+    def normalize_optional_path(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
     @property
     def max_resume_bytes(self) -> int:
         return self.max_resume_mb * 1024 * 1024
