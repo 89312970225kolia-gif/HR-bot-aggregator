@@ -53,8 +53,15 @@ def _decode_body(event: dict[str, Any]) -> dict[str, Any]:
     return body
 
 
-async def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
+async def handler(event: dict[str, Any] | str, context: Any) -> dict[str, Any]:
     del context
+    if isinstance(event, str):
+        try:
+            event = json.loads(event)
+        except json.JSONDecodeError:
+            return {"statusCode": 400, "body": "invalid payload"}
+    if not isinstance(event, dict):
+        return {"statusCode": 400, "body": "invalid payload"}
     if event.get("httpMethod") == "GET":
         return {"statusCode": 200, "body": "ok"}
 

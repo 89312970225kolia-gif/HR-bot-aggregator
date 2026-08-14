@@ -80,3 +80,39 @@ async def test_handler_feeds_valid_update(monkeypatch) -> None:
 
     assert response["statusCode"] == 200
     assert received == [(bot, 42)]
+
+
+async def test_handler_accepts_yandex_async_raw_envelope(monkeypatch) -> None:
+    settings = Settings(
+        telegram_bot_token="123456:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi",
+        telegram_webhook_secret="expected",
+        debug=True,
+    )
+    monkeypatch.setattr(cloud_handler, "get_settings", lambda: settings)
+    received = []
+
+    class FakeDispatcher:
+        async def feed_update(self, bot, update):
+            received.append((bot, update.update_id))
+
+    bot = Bot(settings.telegram_bot_token)
+
+    async def fake_runtime():
+        return SimpleNamespace(bot=bot, dispatcher=FakeDispatcher())
+
+    monkeypatch.setattr(cloud_handler, "_get_runtime", fake_runtime)
+    raw_envelope = json.dumps(
+        {
+            "httpMethod": "POST",
+            "headers": {"x-telegram-bot-api-secret-token": "expected"},
+            "body": json.dumps({"update_id": 43}),
+            "isBase64Encoded": False,
+        }
+    )
+    try:
+        response = await cloud_handler.handler(raw_envelope, None)
+    finally:
+        await bot.session.close()
+
+    assert response["statusCode"] == 200
+    assert received == [(bot, 43)]
