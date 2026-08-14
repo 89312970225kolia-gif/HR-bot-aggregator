@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
 from dataclasses import dataclass
@@ -113,13 +114,21 @@ class GoogleSheetsService:
     def _build_service(self) -> Any:
         if self._service is not None:
             return self._service
-        credentials_path = self.settings.google_service_account_file
-        if credentials_path is None:
-            raise GoogleSheetsError("GOOGLE_SERVICE_ACCOUNT_FILE is not configured")
-        path = Path(credentials_path)
-        if not path.exists():
-            raise GoogleSheetsError(f"Google service account file not found: {path}")
-        credentials = Credentials.from_service_account_file(path, scopes=SCOPES)
+        if self.settings.google_service_account_json_b64:
+            try:
+                raw = base64.b64decode(self.settings.google_service_account_json_b64, validate=True)
+                account_info = json.loads(raw.decode("utf-8"))
+                credentials = Credentials.from_service_account_info(account_info, scopes=SCOPES)
+            except Exception as error:
+                raise GoogleSheetsError("GOOGLE_SERVICE_ACCOUNT_JSON_B64 is invalid") from error
+        else:
+            credentials_path = self.settings.google_service_account_file
+            if credentials_path is None:
+                raise GoogleSheetsError("Google service account credentials are not configured")
+            path = Path(credentials_path)
+            if not path.exists():
+                raise GoogleSheetsError(f"Google service account file not found: {path}")
+            credentials = Credentials.from_service_account_file(path, scopes=SCOPES)
         self._service = build("sheets", "v4", credentials=credentials, cache_discovery=False)
         return self._service
 
@@ -135,9 +144,7 @@ class GoogleSheetsService:
         )
         return list(DEFAULT_HEADERS)
 
-    async def upsert(
-        self, application: ApplicationRecord, result: AIResult
-    ) -> SheetSyncResult:
+    async def upsert(self, application: ApplicationRecord, result: AIResult) -> SheetSyncResult:
         if not self.enabled:
             return SheetSyncResult(row=None, skipped=True)
         headers = await self.ensure_headers()
@@ -146,9 +153,7 @@ class GoogleSheetsService:
 
         match_header = "Application ID" if "Application ID" in header_map else "Candidate ID"
         if match_header not in header_map:
-            raise GoogleSheetsError(
-                "Sheet must contain 'Application ID' or 'Candidate ID' header"
-            )
+            raise GoogleSheetsError("Sheet must contain 'Application ID' or 'Candidate ID' header")
         match_value = str(values[match_header])
         all_rows = await self._get_values(f"'{self.settings.google_sheet_name}'!A:ZZ")
         existing_row_number: int | None = None

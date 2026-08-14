@@ -14,7 +14,8 @@ class Settings(BaseSettings):
     )
 
     telegram_bot_token: str = ""
-    telegram_mode: Literal["polling"] = "polling"
+    telegram_mode: Literal["polling", "webhook"] = "polling"
+    telegram_webhook_secret: str = ""
     drop_pending_updates: bool = True
 
     hr_chat_id: int | None = None
@@ -22,15 +23,17 @@ class Settings(BaseSettings):
     hr_public_username: str = "gentelman_nick"
 
     database_path: Path = Path("data/hr_screening.db")
+    storage_backend: Literal["sqlite", "ydb"] = "sqlite"
+    ydb_endpoint: str = ""
+    ydb_database: str = ""
+    ydb_use_metadata_credentials: bool = True
 
     ai_mode: Literal["yandex", "mock"] = "yandex"
     yandex_api_key: str = ""
     yandex_folder_id: str = ""
     yandex_model: str = "yandexgpt"
     yandex_model_version: str = "latest"
-    yandex_api_url: str = (
-        "https://ai.api.cloud.yandex.net/foundationModels/v1/completion"
-    )
+    yandex_api_url: str = "https://ai.api.cloud.yandex.net/foundationModels/v1/completion"
     yandex_timeout_seconds: float = 60.0
     yandex_max_tokens: int = 2000
 
@@ -38,6 +41,7 @@ class Settings(BaseSettings):
     google_spreadsheet_id: str = ""
     google_sheet_name: str = "Лист1"
     google_service_account_file: Path | None = None
+    google_service_account_json_b64: str = ""
 
     max_resume_mb: int = Field(default=10, ge=1, le=50)
     debug: bool = False
@@ -69,10 +73,7 @@ class Settings(BaseSettings):
 
     @property
     def yandex_model_uri(self) -> str:
-        return (
-            f"gpt://{self.yandex_folder_id}/{self.yandex_model}/"
-            f"{self.yandex_model_version}"
-        )
+        return f"gpt://{self.yandex_folder_id}/{self.yandex_model}/{self.yandex_model_version}"
 
     def validate_runtime(self) -> None:
         missing: list[str] = []
@@ -80,9 +81,7 @@ class Settings(BaseSettings):
             missing.append("TELEGRAM_BOT_TOKEN")
         if self.debug:
             if missing:
-                raise ValueError(
-                    "Missing required environment variables: " + ", ".join(missing)
-                )
+                raise ValueError("Missing required environment variables: " + ", ".join(missing))
             return
         if self.hr_chat_id is None:
             missing.append("HR_CHAT_ID")
@@ -96,8 +95,16 @@ class Settings(BaseSettings):
         if self.google_sheets_enabled:
             if not self.google_spreadsheet_id:
                 missing.append("GOOGLE_SPREADSHEET_ID")
-            if self.google_service_account_file is None:
-                missing.append("GOOGLE_SERVICE_ACCOUNT_FILE")
+            if (
+                self.google_service_account_file is None
+                and not self.google_service_account_json_b64
+            ):
+                missing.append("GOOGLE_SERVICE_ACCOUNT_FILE or GOOGLE_SERVICE_ACCOUNT_JSON_B64")
+        if self.storage_backend == "ydb":
+            if not self.ydb_endpoint:
+                missing.append("YDB_ENDPOINT")
+            if not self.ydb_database:
+                missing.append("YDB_DATABASE")
         if missing:
             raise ValueError("Missing required environment variables: " + ", ".join(missing))
 

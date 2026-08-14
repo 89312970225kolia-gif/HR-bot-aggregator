@@ -14,12 +14,13 @@ Python-приложение заменяет прежние Make/n8n workflow и
 - карточка кандидата HR с кнопками «Одобрить» и «Отклонить»;
 - авторизация callback по `HR_USER_ID` и защита от повторного решения;
 - Google Sheets upsert по названиям колонок, без зависимости от их порядка;
-- SQLite как источник истины и атомарные переходы состояний.
+- SQLite для локального polling и YDB для облачного webhook-режима;
+- постоянная работа через Yandex Cloud Functions без включённого компьютера.
 
 ## Архитектура
 
 ```text
-Telegram -> aiogram handlers -> SQLite
+Telegram -> aiogram handlers -> SQLite / YDB
                               -> PDF/DOCX parser
                               -> YandexGPT -> validated AIResult
                               -> Google Sheets
@@ -30,7 +31,7 @@ Telegram -> aiogram handlers -> SQLite
 Основные каталоги:
 
 - `app/bot/handlers` — Telegram-команды, документы, текст и HR callback;
-- `app/db` — SQLite schema, модели и атомарный repository;
+- `app/db` — SQLite/YDB schema, модели и атомарные repositories;
 - `app/services` — resume parser, YandexGPT, Sheets и HR-уведомления;
 - `app/schemas` — Pydantic-контракты;
 - `app/vacancies` — конфигурация вакансии вне handlers;
@@ -49,9 +50,9 @@ HR reject -> rejected
 AI/parse failure -> analysis_failed
 ```
 
-Критичные переходы выполняются `UPDATE ... WHERE stage=<expected>` внутри SQLite
-transaction. Поэтому два одинаковых сообщения или два callback не запускают повторный
-AI-анализ и не меняют уже принятое решение.
+Критичные переходы выполняются атомарно в выбранном хранилище. Поэтому два одинаковых
+сообщения или два callback не запускают повторный AI-анализ и не меняют уже принятое
+решение.
 
 `/start` продолжает существующую заявку. `/restart` создаёт новую заявку только после
 завершённой или технически неуспешной предыдущей заявки.
@@ -67,7 +68,7 @@ reject:<application_id>
 
 Нажать кнопки может только пользователь с числовым `HR_USER_ID`. После решения:
 
-1. SQLite атомарно фиксирует `approved` или `rejected`;
+1. выбранное хранилище атомарно фиксирует `approved` или `rejected`;
 2. обновляется существующая строка Google Sheets;
 3. сообщение отправляется по сохранённому `telegram_user_id` кандидата;
 4. inline-клавиатура удаляется;
@@ -163,9 +164,38 @@ Google.
 2. сделать n8n workflow inactive/unpublished;
 3. убедиться, что другой процесс не использует тот же bot token.
 
-При запуске Python удаляет прежний Telegram webhook и начинает long polling. Один token
-не может одновременно обслуживаться несколькими polling/webhook реализациями.
+В локальном режиме Python удаляет прежний Telegram webhook и начинает long polling.
+В облачном режиме Telegram вызывает публичную Cloud Function по webhook. Один token не
+может одновременно обслуживаться несколькими polling/webhook реализациями.
 `DROP_PENDING_UPDATES=true` удаляет старые необработанные updates при переключении.
+
+## Yandex Cloud Functions
+
+Облачный runtime использует `function_handler.handler`, Telegram webhook и serverless
+YDB. Он сохраняет ту же бизнес-логику handlers, YandexGPT, Google Sheets и HR
+approve/reject, но не требует постоянно включённого компьютера.
+
+Архив для новой версии функции:
+
+```bash
+./scripts/package_cloud.sh
+```
+
+Основные настройки функции:
+
+```env
+TELEGRAM_MODE=webhook
+STORAGE_BACKEND=ydb
+YDB_ENDPOINT=grpcs://ydb.serverless.yandexcloud.net:2135
+YDB_DATABASE=/region/cloud-id/database-id
+YDB_USE_METADATA_CREDENTIALS=true
+TELEGRAM_WEBHOOK_SECRET=<random-secret>
+GOOGLE_SERVICE_ACCOUNT_JSON_B64=<base64-service-account-json>
+```
+
+Для версии функции нужен сервисный аккаунт с минимальной ролью на выбранную YDB.
+Функция должна быть публичной для Telegram, но каждый POST дополнительно проверяется
+по заголовку `X-Telegram-Bot-Api-Secret-Token`.
 
 ## Mock smoke без Yandex и Google
 
@@ -225,16 +255,16 @@ GOOGLE_SERVICE_ACCOUNT_FILE=/run/secrets/google-service-account.json
 
 - OCR сканированных PDF в MVP не выполняется;
 - реальные Telegram, YandexGPT и Google Sheets требуют credentials и отдельного E2E;
-- SQLite подходит для одного экземпляра приложения; горизонтальный запуск нескольких
-  процессов потребует общей серверной БД;
-- Cloud Functions рассчитаны на webhook, а основной MVP сейчас использует polling.
+- SQLite подходит только для локального одиночного процесса; облачный режим использует
+  общую serverless YDB;
+- холодный старт Cloud Functions может дать небольшую задержку первого ответа.
 
 ## Безопасность
 
 - AI не получает и не должен оценивать чувствительные характеристики;
 - решение принимает только HR;
 - callbacks проверяются по `HR_USER_ID`;
-- секреты хранятся только в `.env`/внешнем secret store;
+- секреты хранятся только в `.env` или переменных/secret store облачной функции;
 - логи не содержат токены, ключи, Authorization header и полный текст резюме;
 - SQLite и Google credentials должны иметь ограниченные filesystem permissions.
 
