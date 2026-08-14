@@ -1,0 +1,13 @@
+{
+  "result": {
+    "alternatives": [
+      {
+        "message": {
+          "role": "assistant",
+          "text": "{\"candidate_name\":\"Тест\",\"experience_summary\":\"Тестовый опыт\",\"experience_1_year\":\"unknown\",\"portfolio_status\":\"unknown\",\"portfolio_links\":[],\"ai_tools\":[],\"scores\":{\"ai_tools_skills\":0,\"portfolio_quality\":0,\"short_video_skills\":0,\"learning_new_ai\":0,\"content_discipline\":0,\"smm_understanding\":0,\"result_and_learning\":0,\"ai_content_automation_interest\":0},\"strengths\":[],\"missing_requirements\":[],\"stop_factors\":[],\"hr_summary\":\"\"}"
+        },
+        "status": "ALTERNATIVE_STATUS_FINAL"
+      }
+    ]
+  }
+}

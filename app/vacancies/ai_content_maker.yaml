@@ -1,0 +1,41 @@
+vacancy_id: ai_content_maker
+title: AI-контент мейкер / Создатель видео / SMM / Маркетолог (TikTok / Reels / YouTube)
+company: ""
+active: true
+portfolio_required: true
+minimum_experience_years: 1
+responsibilities:
+  - генерация фото и видео через AI
+  - создание TikTok, Reels и YouTube Shorts
+  - создание AI-аватаров и виртуальных персонажей
+  - публикация контента и тестирование гипотез
+  - создание UGC и продвижение товаров и услуг через AI-контент
+  - развитие аккаунтов брендов и медиа
+  - автоматизация контентных и бизнес-процессов через AI
+requirements:
+  mandatory:
+    - желание работать и развиваться в AI
+    - интерес к TikTok, Instagram и YouTube
+    - способность быстро учиться
+    - готовность регулярно создавать контент
+    - дисциплина при удалённой работе
+  preferred:
+    - опыт с ChatGPT, Claude, Kling, NanoBanana, Seedance или другими AI-сервисами
+    - понимание SMM и вирусного контента
+    - опыт создания вертикальных коротких видео
+    - опыт социальных сетей
+    - интерес к автоматизации
+stop_factors:
+  - кандидат ищет исключительно стабильную офисную работу
+  - кандидат явно не готов обучаться
+  - кандидат явно не готов регулярно создавать контент
+  - кандидат явно сообщает о невозможности самоорганизоваться при удалённой работе
+ai_criteria:
+  - ai_tools_skills
+  - portfolio_quality
+  - short_video_skills
+  - learning_new_ai
+  - content_discipline
+  - smm_understanding
+  - result_and_learning
+  - ai_content_automation_interest
